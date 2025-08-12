@@ -1,0 +1,58 @@
+{
+    "app-info":{
+        "name":"Test app",
+        "version":1.0
+    },
+    "globals":{
+        "title":"Test Application",
+        "icon":"icon.ico"
+    },
+    "points":{
+        "/":{
+            "children":{},
+            "type":"Page",
+            "name":"Home Page",
+            "prop":{
+                "source-page":"index.html"
+            }
+        },
+        "api":{
+            "children":{
+                "hello":{
+                    "children":{},
+                    "type":"Endpoint",
+                    "name":"Test Endpoint",
+                    "prop":{
+                        "scriptable":false,
+                        "allowed-methods":["GET"],
+                        "set-response":"{'Message':'Hello there this is a test!'}",
+                        "set-response-type":"json",
+                        "set-response-code":200
+                    }
+                }
+            },
+            "type":"Path",
+            "name":"Api Path",
+            "prop":{
+            }
+        }
+    },
+    "special-points":{
+        "hascode 500;":{
+            "children":{},
+            "type":"Page",
+            "name":"Code 500",
+            "prop":{
+                "source-page":"500.html"
+            }
+        },
+        "hascode 404;":{
+            "children":{},
+            "type":"Page",
+            "name":"Code 404",
+            "prop":{
+                "source-page":"404.html"
+            }
+        }
+    }
+}
