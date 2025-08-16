@@ -4,8 +4,6 @@
         "version":1.0
     },
     "globals":{
-        "title":"Test Application",
-        "icon":"icon.ico"
     },
     "points":{
         "/":{
@@ -24,9 +22,8 @@
                     "name":"Test Endpoint",
                     "prop":{
                         "scriptable":false,
-                        "allowed-methods":["GET"],
                         "set-response":"{'Message':'Hello there this is a test!'}",
-                        "set-response-type":"json",
+                        "set-response-type":"application/json",
                         "set-response-code":200
                     }
                 }
@@ -38,20 +35,15 @@
         }
     },
     "special-points":{
-        "hascode 500;":{
-            "children":{},
-            "type":"Page",
-            "name":"Code 500",
-            "prop":{
-                "source-page":"500.html"
-            }
-        },
         "hascode 404;":{
             "children":{},
-            "type":"Page",
+            "type":"Endpoint",
             "name":"Code 404",
             "prop":{
-                "source-page":"404.html"
+                "scriptable":false,
+                "set-response":"{'Message':'Page not found!'}",
+                "set-response-type":"application/json",
+                "set-response-code":404
             }
         }
     }
