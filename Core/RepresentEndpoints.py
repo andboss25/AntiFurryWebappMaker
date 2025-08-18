@@ -24,7 +24,16 @@ class Briger():
             resp = point.element_object.source_page
             resp_type = WebSEngine.StaticResponsePathTypes.HTML_FILE
         elif point.type == "Endpoint":
+            if point.element_object.scriptable is True:
+                return WebSEngine.DynamicResponsePath(current_path,point.element_object.script_path)
             resp = point.element_object.set_response
+            resp_type = WebSEngine.StaticResponsePathTypes.OTHER
+            sepcified_content_type = point.element_object.set_response_type
+            code = point.element_object.set_response_code
+        elif point.type == "StreamBytes":
+            if point.element_object.scriptable is True:
+                return WebSEngine.DynamicResponsePath(current_path,point.element_object.script_path)
+            resp = open(point.element_object.set_response,"rb").read()
             resp_type = WebSEngine.StaticResponsePathTypes.OTHER
             sepcified_content_type = point.element_object.set_response_type
             code = point.element_object.set_response_code

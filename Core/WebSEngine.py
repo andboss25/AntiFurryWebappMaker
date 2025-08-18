@@ -1,7 +1,30 @@
 # Simple Web-Server abstraction layer using http.server
 # Written by andreiplsno
+
+import LuaEvaluator
+
 import http.server
 import json
+import urllib
+import lupa
+
+class Helpfull:
+    def IsLuaTable(obj):
+        """Check if an object is a Lua table."""
+        return hasattr(obj, "keys") and not isinstance(obj, dict)
+
+    def LuaToPython(self,obj):
+        """Recursively convert Lua table to Python dict/list for JSON serialization."""
+        if hasattr(obj, "items") and callable(getattr(obj, "items")):
+            keys = list(obj.keys())
+            if all(isinstance(k, int) for k in keys) and keys == list(range(1, len(keys)+1)):
+                return [self.LuaToPython(obj[i]) for i in range(1, len(keys)+1)]
+            else:
+                return {k: self.LuaToPython(obj[k]) for k in obj.keys()}
+        elif isinstance(obj, (str, int, float, bool)) or obj is None:
+            return obj
+        else:
+            return str(obj)
 
 class BaseResponse:
     """
@@ -27,7 +50,7 @@ class BaseResponse:
             server -> 'AFWEBAPP - Built using python ThreadingHTTPServer'
         """
         self.headers["content-type"] = f"{content_type};"
-        self.headers["content-lenght"] = len(self.content)
+        self.headers["content-length"] = len(self.content)
         self.headers["server"] = "AFWEBAPP - Built using python ThreadingHTTPServer"
 
     def SendBaseResponse(self,handler = http.server.BaseHTTPRequestHandler):
@@ -55,6 +78,10 @@ class RequestHandlerMethods:
     
     def BuildJsonResponse(myself = http.server.BaseHTTPRequestHandler,message:dict={},code:int=200):
         """Like SendJsonResponse() but it actually returns the BaseResponse and it does not send it."""
+        # Turn lua table to python table
+        if Helpfull.IsLuaTable(message):
+            message = Helpfull().LuaToPython(message)
+
         response = BaseResponse(code,{},json.dumps(message).encode())
         response.BuildBasicHeaderSet("application/json")
         return response
@@ -71,7 +98,7 @@ class RequestHandlerMethods:
         response.BuildBasicHeaderSet("text/html")
         return response
     
-    def BuildHTMLResponseFile(myself = http.server.BaseHTTPRequestHandler,file_path:str = "",code:int=200):
+    def BuildHtmlResponseFile(myself = http.server.BaseHTTPRequestHandler,file_path:str = "",code:int=200):
         """Like SendHTMLResponseFile() but it actually returns the BaseResponse and it does not send it."""
         file = open(file_path,"r")
         response = BaseResponse(code,{},file.read().encode())
@@ -100,9 +127,9 @@ class RequestHandlerMethods:
         response = RequestHandlerMethods.BuildHtmlResponse(myself,message,code)
         response.SendBaseResponse(myself)
 
-    def SendHTMLResponseFile(myself = http.server.BaseHTTPRequestHandler,file_path:str = "",code:int=200):
+    def SendHtmlResponseFile(myself = http.server.BaseHTTPRequestHandler,file_path:str = "",code:int=200):
         """Send a HTTP/HTTPS text/html response with all parameters provided."""
-        response = RequestHandlerMethods.BuildHTMLResponseFile(myself,file_path,code)
+        response = RequestHandlerMethods.BuildHtmlResponseFile(myself,file_path,code)
         response.SendBaseResponse(myself)
 
 class StaticResponsePathTypes:
@@ -120,7 +147,7 @@ class StaticResponsePath:
         self.response = response
         self.content_type_specified = content_type_specified
 
-    def HostWithoutPathAccounting(self,handler):
+    def HostWithoutPathAccounting(self,handler,method,headers,body):
         if self.response_type == "HTML_FILE":
             RequestHandlerMethods.SendHTMLResponseFile(handler,self.response,self.code)
         elif self.response_type == "HTML_RAW":
@@ -132,21 +159,101 @@ class StaticResponsePath:
         elif self.response_type == "OTHER":
             RequestHandlerMethods.SendResponse(handler,self.response,self.code,self.content_type_specified)
 
+class DynamicResponsePath:
+    def __init__(self,path:str = "/",script_path:str = ""):
+        self.path = path
+        self.script_path = script_path
+
+    def HostWithoutPathAccounting(self,handler:http.server.BaseHTTPRequestHandler,method:str,headers:dict,body:str|bytes):
+        runner = LuaEvaluator.LuaRunner(handler_instance=handler)
+        parsed = urllib.parse.urlparse(handler.path)
+
+        runner.AddGlobals({
+            "query_params": urllib.parse.parse_qs(parsed.query)
+            , "method": method
+            , "headers": headers
+            , "body" : body
+        })
+        runner.RunLuaMain(self.script_path)()
+
 class RequestHandler(http.server.BaseHTTPRequestHandler):
-    paths : dict[StaticResponsePath] = []
+    paths : dict[StaticResponsePath|DynamicResponsePath] = []
     not_found_page:StaticResponsePath = None
 
     def do_GET(self):
-
+        method = "GET"
+        headers = self.headers
+        body = self.rfile.read(int(headers.get("Content-Length",0)))
         found = False
+        path = urllib.parse.urlparse(self.path).path
 
         for obj in self.paths:
-            if self.path == obj.path:
+            if path == obj.path:
                 found = True
-                obj.HostWithoutPathAccounting(self)
+                obj.HostWithoutPathAccounting(self,method,headers,body)
         
         if found == False:
-            self.not_found_page.HostWithoutPathAccounting(self)
+            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+
+    def do_POST(self):
+        method = "POST"
+        headers = self.headers
+        body = self.rfile.read(int(headers.get("Content-Length",0)))
+        found = False
+        path = urllib.parse.urlparse(self.path).path
+
+        for obj in self.paths:
+            if path == obj.path:
+                found = True
+                obj.HostWithoutPathAccounting(self,method,headers,body)
+        
+        if found == False:
+            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+
+    def do_PUT(self):
+        method = "PUT"
+        headers = self.headers
+        body = self.rfile.read(int(headers.get("Content-Length",0)))
+        found = False
+        path = urllib.parse.urlparse(self.path).path
+
+        for obj in self.paths:
+            if path == obj.path:
+                found = True
+                obj.HostWithoutPathAccounting(self,method,headers,body)
+        
+        if found == False:
+            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+
+    def do_PATCH(self):
+        method = "PATCH"
+        headers = self.headers
+        body = self.rfile.read(int(headers.get("Content-Length",0)))
+        found = False
+        path = urllib.parse.urlparse(self.path).path
+
+        for obj in self.paths:
+            if path == obj.path:
+                found = True
+                obj.HostWithoutPathAccounting(self,method,headers,body)
+        
+        if found == False:
+            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+
+    def do_DELETE(self):
+        method = "DELETE"
+        headers = self.headers
+        body = self.rfile.read(int(headers.get("Content-Length",0)))
+        found = False
+        path = urllib.parse.urlparse(self.path).path
+
+        for obj in self.paths:
+            if path == obj.path:
+                found = True
+                obj.HostWithoutPathAccounting(self,method,headers,body)
+        
+        if found == False:
+            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
                 
 class Server:
     def __init__(self,port:int = 80,addr:str = '',server_class=http.server.ThreadingHTTPServer,server_handler_class=RequestHandler):

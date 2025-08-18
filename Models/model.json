@@ -11,11 +11,29 @@
             "type":"Page",
             "name":"Home Page",
             "prop":{
-                "source-page":"index.html"
+                "source-page":"Pages\\index.html"
             }
         },
         "api":{
             "children":{
+                "images":{
+                "children":{
+                    "antifurry":{
+                        "children":{},
+                        "type":"StreamBytes",
+                        "name":"Image",
+                        "prop":{
+                            "scriptable":false,
+                            "set-response":"Pages\\image.png",
+                            "set-response-type":"image/png",
+                            "set-response-code":200
+                        }
+                    }
+                },
+                "type":"Path",
+                "name":"Api Path",
+                "prop":{}
+                },
                 "hello":{
                     "children":{},
                     "type":"Endpoint",
@@ -26,8 +44,18 @@
                         "set-response-type":"application/json",
                         "set-response-code":200
                     }
+                },
+                "shit":{
+                    "children":{},
+                    "type":"Endpoint",
+                    "name":"Scripted This",
+                    "prop":{
+                        "scriptable":true,
+                        "script-path":"Scripts\\test.lua"
+                    }
                 }
             },
+            
             "type":"Path",
             "name":"Api Path",
             "prop":{

@@ -22,13 +22,21 @@ class Endpoint:
     def __init__(self, props: dict):
         # Script props
         self.scriptable: bool = props.get("scriptable", True)
-
-        # Request props
-        self.allowed_methods: list = props.get("allowed-methods", ["GET", "POST"])
+        self.script_path:str = props.get("script-path", '')
 
         # Set response props
         self.set_response: str = props.get("set-response", None)
         self.set_response_type: str = props.get("set-response-type", "json")
+        self.set_response_code: int = props.get("set-response-code", 200)
+
+class StreamBytes:
+    def __init__(self, props: dict):
+        # Script props
+        self.scriptable: bool = props.get("scriptable", True)
+
+        # Set response props
+        self.set_response: str = props.get("set-response", None)
+        self.set_response_type: str = props.get("set-response-type", "text/plain")
         self.set_response_code: int = props.get("set-response-code", 200)
 
 class Page:
@@ -80,6 +88,8 @@ class Reader:
                 element_type = PathFolder(point_dict[point]["prop"])
             elif point_dict[point]["type"] == "Endpoint":
                 element_type = Endpoint(point_dict[point]["prop"])
+            elif point_dict[point]["type"] == "StreamBytes":
+                element_type = StreamBytes(point_dict[point]["prop"])
 
             # Define Object
             children_points = point_dict[point]["children"]
@@ -106,6 +116,8 @@ class Reader:
                 element_type = PathFolder(point_dict[point]["prop"])
             elif point_dict[point]["type"] == "Endpoint":
                 element_type = Endpoint(point_dict[point]["prop"])
+            elif point_dict[point]["type"] == "StreamBytes":
+                element_type = StreamBytes(point_dict[point]["prop"])
 
             # Define Object
             point_object = SpecialPoint(
