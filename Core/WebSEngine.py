@@ -140,16 +140,54 @@ class StaticResponsePathTypes:
     OTHER = "OTHER"
 
 class StaticResponsePath:
-    def __init__(self,path:str = "/",response_type:StaticResponsePathTypes = StaticResponsePathTypes.TEXT_LITERAL,code:int = 200,response:dict|str|bytes = "",content_type_specified:str = "text/plain"):
+    def __init__(self,path:str = "/",response_type:StaticResponsePathTypes = StaticResponsePathTypes.TEXT_LITERAL,code:int = 200,response:dict|str|bytes = "",content_type_specified:str = "text/plain",checks:dict = {}):
         self.path = path
         self.response_type = response_type
         self.code = code
         self.response = response
         self.content_type_specified = content_type_specified
+        self.checks = checks
 
-    def HostWithoutPathAccounting(self,handler,method,headers,body):
+    def HostWithoutPathAccounting(self,handler:http.server.BaseHTTPRequestHandler,method,headers,body):
+        # See if checks are met
+
+        allowed_methods = self.checks.get("allowed-methods",["GET","POST","PATCH","DELETE"])
+        must_be_json = self.checks.get("must-be-json",False)
+        required_json_params = self.checks.get("require_json_params",[])
+        required_url_params = self.checks.get("require_url_params",[])
+
+        if method not in allowed_methods:
+            RequestHandlerMethods.SendPlainResponse(handler,"Method not allowed!",405)
+        
+        if must_be_json == True and headers["Content-Type"] != "application/json":
+            RequestHandlerMethods.SendPlainResponse(handler,"Request must be json!",400)
+
+        if must_be_json == True:
+            try:
+                json_content = json.loads(body)
+            except:
+                RequestHandlerMethods.SendPlainResponse(handler,"Malformed json!",400)
+            
+        if len(required_json_params) > 0 and must_be_json is True:
+            required_set = set(required_json_params)
+            provided_set = set(json_content.keys())
+
+            if not required_set <= provided_set:
+                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your json: {str(required_json_params)}!",400)
+
+        if len(required_url_params) > 0:
+            parsed = urllib.parse.urlparse(handler.path)
+            queries = urllib.parse.parse_qs(parsed.query)
+            provided_keys = set(queries.keys())
+            required_set = set(required_url_params)
+
+            if not ( required_set <= provided_keys ):
+                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your url: {str(required_url_params)}!",400)
+
+        # Host based on type
+
         if self.response_type == "HTML_FILE":
-            RequestHandlerMethods.SendHTMLResponseFile(handler,self.response,self.code)
+            RequestHandlerMethods.SendHtmlResponseFile(handler,self.response,self.code)
         elif self.response_type == "HTML_RAW":
             RequestHandlerMethods.SendHtmlResponse(handler,self.response,self.code)
         elif self.response_type == "JSON":
@@ -160,19 +198,56 @@ class StaticResponsePath:
             RequestHandlerMethods.SendResponse(handler,self.response,self.code,self.content_type_specified)
 
 class DynamicResponsePath:
-    def __init__(self,path:str = "/",script_path:str = ""):
+    def __init__(self,path:str = "/",script_path:str = "",checks:dict = {}):
         self.path = path
         self.script_path = script_path
+        self.checks = checks
 
     def HostWithoutPathAccounting(self,handler:http.server.BaseHTTPRequestHandler,method:str,headers:dict,body:str|bytes):
+        # See if checks are met
+
+        allowed_methods = self.checks.get("allowed-methods",["GET","POST","PATCH","DELETE"])
+        must_be_json = self.checks.get("must-be-json",False)
+        required_json_params = self.checks.get("require_json_params",[])
+        required_url_params = self.checks.get("require_url_params",[])
+
+        if method not in allowed_methods:
+            RequestHandlerMethods.SendPlainResponse(handler,"Method not allowed!",405)
+        
+        if must_be_json == True and headers["Content-Type"] != "application/json":
+            RequestHandlerMethods.SendPlainResponse(handler,"Request must be json!",400)
+
+        if must_be_json == True:
+            try:
+                json_content = json.loads(body)
+            except:
+                RequestHandlerMethods.SendPlainResponse(handler,"Malformed json!",400)
+            
+        if len(required_json_params) > 0 and must_be_json is True:
+            required_set = set(required_json_params)
+            provided_set = set(json_content.keys())
+
+            if not required_set <= provided_set:
+                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your json: {str(required_json_params)}!",400)
+
+        if len(required_url_params) > 0:
+            parsed = urllib.parse.urlparse(handler.path)
+            queries = urllib.parse.parse_qs(parsed.query)
+            provided_keys = set(queries.keys())
+            required_set = set(required_url_params)
+
+            if not ( required_set <= provided_keys ):
+                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your url: {str(required_url_params)}!",400)
+
+        # Run script
         runner = LuaEvaluator.LuaRunner(handler_instance=handler)
         parsed = urllib.parse.urlparse(handler.path)
 
         runner.AddGlobals({
-            "query_params": urllib.parse.parse_qs(parsed.query)
-            , "method": method
-            , "headers": headers
-            , "body" : body
+            "QUERY_PARAMS": urllib.parse.parse_qs(parsed.query)
+            , "REQUEST_METHOD": method
+            , "REQUEST_HEADERS": headers
+            , "REQUEST_BODY" : body
         })
         runner.RunLuaMain(self.script_path)()
 
@@ -181,79 +256,94 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
     not_found_page:StaticResponsePath = None
 
     def do_GET(self):
-        method = "GET"
-        headers = self.headers
-        body = self.rfile.read(int(headers.get("Content-Length",0)))
-        found = False
-        path = urllib.parse.urlparse(self.path).path
+        try:
+            method = "GET"
+            headers = self.headers
+            body = self.rfile.read(int(headers.get("Content-Length",0)))
+            found = False
+            path = urllib.parse.urlparse(self.path).path
 
-        for obj in self.paths:
-            if path == obj.path:
-                found = True
-                obj.HostWithoutPathAccounting(self,method,headers,body)
-        
-        if found == False:
-            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+            for obj in self.paths:
+                if path == obj.path:
+                    found = True
+                    obj.HostWithoutPathAccounting(self,method,headers,body)
+            
+            if found == False:
+                self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except Exception as e:
+            RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
 
     def do_POST(self):
-        method = "POST"
-        headers = self.headers
-        body = self.rfile.read(int(headers.get("Content-Length",0)))
-        found = False
-        path = urllib.parse.urlparse(self.path).path
+        try:
+            method = "POST"
+            headers = self.headers
+            body = self.rfile.read(int(headers.get("Content-Length",0)))
+            found = False
+            path = urllib.parse.urlparse(self.path).path
 
-        for obj in self.paths:
-            if path == obj.path:
-                found = True
-                obj.HostWithoutPathAccounting(self,method,headers,body)
-        
-        if found == False:
-            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+            for obj in self.paths:
+                if path == obj.path:
+                    found = True
+                    obj.HostWithoutPathAccounting(self,method,headers,body)
+            
+            if found == False:
+                self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except Exception as e:
+            RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
 
     def do_PUT(self):
-        method = "PUT"
-        headers = self.headers
-        body = self.rfile.read(int(headers.get("Content-Length",0)))
-        found = False
-        path = urllib.parse.urlparse(self.path).path
+        try:
+            method = "PUT"
+            headers = self.headers
+            body = self.rfile.read(int(headers.get("Content-Length",0)))
+            found = False
+            path = urllib.parse.urlparse(self.path).path
 
-        for obj in self.paths:
-            if path == obj.path:
-                found = True
-                obj.HostWithoutPathAccounting(self,method,headers,body)
-        
-        if found == False:
-            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+            for obj in self.paths:
+                if path == obj.path:
+                    found = True
+                    obj.HostWithoutPathAccounting(self,method,headers,body)
+            
+            if found == False:
+                self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except Exception as e:
+            RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
 
     def do_PATCH(self):
-        method = "PATCH"
-        headers = self.headers
-        body = self.rfile.read(int(headers.get("Content-Length",0)))
-        found = False
-        path = urllib.parse.urlparse(self.path).path
+        try:
+            method = "PATCH"
+            headers = self.headers
+            body = self.rfile.read(int(headers.get("Content-Length",0)))
+            found = False
+            path = urllib.parse.urlparse(self.path).path
 
-        for obj in self.paths:
-            if path == obj.path:
-                found = True
-                obj.HostWithoutPathAccounting(self,method,headers,body)
-        
-        if found == False:
-            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+            for obj in self.paths:
+                if path == obj.path:
+                    found = True
+                    obj.HostWithoutPathAccounting(self,method,headers,body)
+            
+            if found == False:
+                self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except Exception as e:
+            RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
 
     def do_DELETE(self):
-        method = "DELETE"
-        headers = self.headers
-        body = self.rfile.read(int(headers.get("Content-Length",0)))
-        found = False
-        path = urllib.parse.urlparse(self.path).path
+        try:
+            method = "DELETE"
+            headers = self.headers
+            body = self.rfile.read(int(headers.get("Content-Length",0)))
+            found = False
+            path = urllib.parse.urlparse(self.path).path
 
-        for obj in self.paths:
-            if path == obj.path:
-                found = True
-                obj.HostWithoutPathAccounting(self,method,headers,body)
-        
-        if found == False:
-            self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+            for obj in self.paths:
+                if path == obj.path:
+                    found = True
+                    obj.HostWithoutPathAccounting(self,method,headers,body)
+            
+            if found == False:
+                self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except Exception as e:
+            RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
                 
 class Server:
     def __init__(self,port:int = 80,addr:str = '',server_class=http.server.ThreadingHTTPServer,server_handler_class=RequestHandler):

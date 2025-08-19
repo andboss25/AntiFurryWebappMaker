@@ -7,6 +7,9 @@
     },
     "points":{
         "/":{
+            "checks":{
+                "allowed-methods":["GET"]
+            },
             "children":{},
             "type":"Page",
             "name":"Home Page",
@@ -19,6 +22,9 @@
                 "images":{
                 "children":{
                     "antifurry":{
+                        "checks":{
+                            "allowed-methods":["GET"]
+                        },
                         "children":{},
                         "type":"StreamBytes",
                         "name":"Image",
@@ -35,6 +41,10 @@
                 "prop":{}
                 },
                 "hello":{
+                    "checks":{
+                        "allowed-methods":["GET"],
+                        "require_url_params":["name"]
+                    },
                     "children":{},
                     "type":"Endpoint",
                     "name":"Test Endpoint",
@@ -46,6 +56,12 @@
                     }
                 },
                 "shit":{
+                    "checks":{
+                        "allowed-methods":["GET"],
+                        "must-be-json":true,
+                        "require_json_params":["username"],
+                        "require_url_params":["username"]
+                    },
                     "children":{},
                     "type":"Endpoint",
                     "name":"Scripted This",

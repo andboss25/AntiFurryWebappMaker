@@ -20,12 +20,18 @@ class Briger():
         resp_type = None
         sepcified_content_type = None
 
+        # Special points dont have checks!
+        try:
+            checks = point.checks
+        except:
+            checks = {}
+
         if point.type == "Page":
             resp = point.element_object.source_page
             resp_type = WebSEngine.StaticResponsePathTypes.HTML_FILE
         elif point.type == "Endpoint":
             if point.element_object.scriptable is True:
-                return WebSEngine.DynamicResponsePath(current_path,point.element_object.script_path)
+                return WebSEngine.DynamicResponsePath(current_path,point.element_object.script_path,checks)
             resp = point.element_object.set_response
             resp_type = WebSEngine.StaticResponsePathTypes.OTHER
             sepcified_content_type = point.element_object.set_response_type
@@ -41,8 +47,8 @@ class Briger():
             resp = {'Message':'This is a path listing!'}
             resp_type = WebSEngine.StaticResponsePathTypes.JSON
             code = 404
-        
-        return WebSEngine.StaticResponsePath(current_path,resp_type,code,resp,sepcified_content_type)
+
+        return WebSEngine.StaticResponsePath(current_path,resp_type,code,resp,sepcified_content_type,checks)
 
     def ParsePoint(self, point_dict: dict[ParseModelFile.Object], parent_path=""):
         paths = []

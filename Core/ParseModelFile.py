@@ -8,12 +8,13 @@ import json
 # Declare Objects
 
 class Object:
-    def __init__(self,type:str,path:str,children:list,name:str,element_object):
+    def __init__(self,type:str,path:str,children:list,name:str,element_object,checks:dict[str]):
         self.type = type
         self.path = path
         self.children = children
         self.name = name
         self.element_object = element_object
+        self.checks = checks
     
     def __repr__(self):
         return f"<Object name:{self.name} path:{self.path} type:{self.type} children:{self.children} element:{self.element_object}>"
@@ -93,13 +94,17 @@ class Reader:
 
             # Define Object
             children_points = point_dict[point]["children"]
+            try:
+                point_dict[point]["checks"] 
+            except:
+                point_dict[point]["checks"] = []
             point_object = Object(
                 point_dict[point]["type"] ,
                 point ,
                 self.ParsePoint(children_points) if len(children_points) > 0 else None ,
                 point_dict[point]["name"] ,
-                element_type
-
+                element_type,
+                point_dict[point]["checks"] 
             )
 
             objects.append(point_object)
@@ -160,7 +165,7 @@ class Reader:
         # Traverse points
         try:
             points = self.ParsePoint(json_model_data["points"])
-        except:
+        except Exception as e:
             raise Exception("Error reading model file points!")
         
         # Travesre special points
