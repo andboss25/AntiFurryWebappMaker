@@ -4,6 +4,8 @@
         "version":1.0
     },
     "globals":{
+        "DB_FILEPATH":"DB\\database.db",
+        "DB_INITIALQUERY_PATHS":["DB\\init.sql"]
     },
     "points":{
         "/":{
@@ -43,7 +45,28 @@
                 "hello":{
                     "checks":{
                         "allowed-methods":["GET"],
-                        "require_url_params":["name"]
+                        "require-url-params":["name"]
+                    },
+                    "children":{},
+                    "type":"Endpoint",
+                    "name":"Test Endpoint",
+                    "prop":{
+                        "scriptable":false,
+                        "set-response":"{'Message':'Hello there this is a test!'}",
+                        "set-response-type":"application/json",
+                        "set-response-code":200
+                    }
+                },
+                "query":{
+                    "checks":{
+                        "allowed-methods":["GET"],
+                        "require-url-params":["id"],
+                        "compare-query-operation":{
+                            "params":["id"],
+                            "query":"SELECT * FROM users WHERE id=?",
+                            "operation":"PASS_IF_EXISTS",
+                            "failresp":"{'message':'No such object in the database'}"
+                        }
                     },
                     "children":{},
                     "type":"Endpoint",
@@ -57,10 +80,8 @@
                 },
                 "shit":{
                     "checks":{
-                        "allowed-methods":["GET"],
-                        "must-be-json":true,
-                        "require_json_params":["username"],
-                        "require_url_params":["username"]
+                        "allowed-methods":["GET"]
+
                     },
                     "children":{},
                     "type":"Endpoint",

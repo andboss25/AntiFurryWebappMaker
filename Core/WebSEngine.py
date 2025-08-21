@@ -2,6 +2,7 @@
 # Written by andreiplsno
 
 import LuaEvaluator
+import HandleDatabse
 
 import http.server
 import json
@@ -153,8 +154,9 @@ class StaticResponsePath:
 
         allowed_methods = self.checks.get("allowed-methods",["GET","POST","PATCH","DELETE"])
         must_be_json = self.checks.get("must-be-json",False)
-        required_json_params = self.checks.get("require_json_params",[])
-        required_url_params = self.checks.get("require_url_params",[])
+        required_json_params = self.checks.get("require-json-params",[])
+        required_url_params = self.checks.get("require-url-params",[])
+        compare_query_operation = self.checks.get("compare-query-operation",[])
 
         if method not in allowed_methods:
             RequestHandlerMethods.SendPlainResponse(handler,"Method not allowed!",405)
@@ -183,6 +185,23 @@ class StaticResponsePath:
 
             if not ( required_set <= provided_keys ):
                 RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your url: {str(required_url_params)}!",400)
+        
+        if len(compare_query_operation) > 0:
+            needed_params = compare_query_operation["params"]
+            query = compare_query_operation["query"]
+            op = compare_query_operation["operation"]
+            failresp = compare_query_operation["failresp"]
+            
+            parsed = urllib.parse.urlparse(handler.path)
+            queries = urllib.parse.parse_qs(parsed.query)
+
+            data = []
+
+            for key in queries:
+                data.append(queries[key][0])
+            
+            if op == "PASS_IF_EXISTS" and len(handler.db.Execute(query,data).fetchall()) == 0:
+                RequestHandlerMethods.SendResponse(handler,failresp,400,"application/json")
 
         # Host based on type
 
@@ -208,8 +227,9 @@ class DynamicResponsePath:
 
         allowed_methods = self.checks.get("allowed-methods",["GET","POST","PATCH","DELETE"])
         must_be_json = self.checks.get("must-be-json",False)
-        required_json_params = self.checks.get("require_json_params",[])
-        required_url_params = self.checks.get("require_url_params",[])
+        required_json_params = self.checks.get("require-json-params",[])
+        required_url_params = self.checks.get("require-url-params",[])
+        compare_query_operation = self.checks.get("compare-query-operation",[])
 
         if method not in allowed_methods:
             RequestHandlerMethods.SendPlainResponse(handler,"Method not allowed!",405)
@@ -238,21 +258,45 @@ class DynamicResponsePath:
 
             if not ( required_set <= provided_keys ):
                 RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your url: {str(required_url_params)}!",400)
+        
+        if len(compare_query_operation) > 0:
+            needed_params = compare_query_operation["params"]
+            query = compare_query_operation["query"]
+            op = compare_query_operation["operation"]
+            failresp = compare_query_operation["failresp"]
+            
+            parsed = urllib.parse.urlparse(handler.path)
+            queries = urllib.parse.parse_qs(parsed.query)
+
+            data = []
+
+            for key in queries:
+                data.append(queries[key][0])
+            
+            if op == "PASS_IF_EXISTS" and len(handler.db.Execute(query,data).fetchall()) == 0:
+                RequestHandlerMethods.SendResponse(handler,failresp,400,"application/json")
 
         # Run script
         runner = LuaEvaluator.LuaRunner(handler_instance=handler)
         parsed = urllib.parse.urlparse(handler.path)
 
+        queries = {}
+
+        for query in urllib.parse.parse_qs(parsed.query):
+            queries[query] = str(urllib.parse.parse_qs(parsed.query)[query][0])
+
         runner.AddGlobals({
-            "QUERY_PARAMS": urllib.parse.parse_qs(parsed.query)
+            "QUERY_PARAMS": queries
             , "REQUEST_METHOD": method
             , "REQUEST_HEADERS": headers
             , "REQUEST_BODY" : body
+            , "APP_DATABASE" : handler.db
         })
         runner.RunLuaMain(self.script_path)()
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
     paths : dict[StaticResponsePath|DynamicResponsePath] = []
+    db:HandleDatabse.Database = None
     not_found_page:StaticResponsePath = None
 
     def do_GET(self):

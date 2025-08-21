@@ -7,6 +7,7 @@ import os
 import sys
 import io
 import platform
+import subprocess
 
 import json
 import xml
@@ -25,6 +26,7 @@ class LuaRunner:
         self.env.globals()["SYS_LIB"] = sys
         self.env.globals()["IO_LIB"] = io
         self.env.globals()["PLATFORM_LIB"] = platform
+        self.env.globals()["SUBPROCESS_LIB"] = subprocess
 
         self.env.globals()["JSON_LIB"] = json
         self.env.globals()["XML_LIB"] = xml

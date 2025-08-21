@@ -2,6 +2,7 @@
 # Written by andreiplsno
 import ParseModelFile
 import WebSEngine
+import HandleDatabse
 
 class Briger():
     def __init__(self,app,handler = WebSEngine.RequestHandler):
@@ -64,8 +65,9 @@ class Briger():
 
         return paths
     
-    def Represent(self):
+    def Represent(self,db):
         self.handler.paths = self.ParsePoint(self.app.points)
+        self.handler.db = db
 
         for special_point in self.app.special_points:
             self.handler.not_found_page = self.InterpretPointToStatic(special_point,"")
