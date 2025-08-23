@@ -8,6 +8,9 @@ import http.server
 import json
 import urllib
 import lupa
+from pathlib import Path
+import importlib.util
+import sys
 
 class Helpfull:
     def IsLuaTable(obj):
@@ -141,67 +144,43 @@ class StaticResponsePathTypes:
     OTHER = "OTHER"
 
 class StaticResponsePath:
-    def __init__(self,path:str = "/",response_type:StaticResponsePathTypes = StaticResponsePathTypes.TEXT_LITERAL,code:int = 200,response:dict|str|bytes = "",content_type_specified:str = "text/plain",checks:dict = {}):
+    def __init__(self,path:str = "/",response_type:StaticResponsePathTypes = StaticResponsePathTypes.TEXT_LITERAL,code:int = 200,response:dict|str|bytes = "",content_type_specified:str = "text/plain",model_check_list:dict = {}):
         self.path = path
         self.response_type = response_type
         self.code = code
         self.response = response
         self.content_type_specified = content_type_specified
-        self.checks = checks
+        self.model_check_list = model_check_list
 
     def HostWithoutPathAccounting(self,handler:http.server.BaseHTTPRequestHandler,method,headers,body):
-        # See if checks are met
-
-        allowed_methods = self.checks.get("allowed-methods",["GET","POST","PATCH","DELETE"])
-        must_be_json = self.checks.get("must-be-json",False)
-        required_json_params = self.checks.get("require-json-params",[])
-        required_url_params = self.checks.get("require-url-params",[])
-        compare_query_operation = self.checks.get("compare-query-operation",[])
-
-        if method not in allowed_methods:
-            RequestHandlerMethods.SendPlainResponse(handler,"Method not allowed!",405)
         
-        if must_be_json == True and headers["Content-Type"] != "application/json":
-            RequestHandlerMethods.SendPlainResponse(handler,"Request must be json!",400)
+        # List trough plugin list of checks
 
-        if must_be_json == True:
-            try:
-                json_content = json.loads(body)
-            except:
-                RequestHandlerMethods.SendPlainResponse(handler,"Malformed json!",400)
-            
-        if len(required_json_params) > 0 and must_be_json is True:
-            required_set = set(required_json_params)
-            provided_set = set(json_content.keys())
+        parser_pathlist = Path("Plugins\\CustomChecks\\Parser").rglob('*.py')
 
-            if not required_set <= provided_set:
-                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your json: {str(required_json_params)}!",400)
+        for file in parser_pathlist:
+            # Create a module spec from file
+            spec = importlib.util.spec_from_file_location(file.stem, str(file))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[file.stem] = module
+            spec.loader.exec_module(module)
 
-        if len(required_url_params) > 0:
-            parsed = urllib.parse.urlparse(handler.path)
-            queries = urllib.parse.parse_qs(parsed.query)
-            provided_keys = set(queries.keys())
-            required_set = set(required_url_params)
-
-            if not ( required_set <= provided_keys ):
-                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your url: {str(required_url_params)}!",400)
+            # Retrieve function
+            Check = getattr(module, "Check", None)
+            Check(handler,method,headers,body,self.model_check_list)
         
-        if len(compare_query_operation) > 0:
-            needed_params = compare_query_operation["params"]
-            query = compare_query_operation["query"]
-            op = compare_query_operation["operation"]
-            failresp = compare_query_operation["failresp"]
-            
-            parsed = urllib.parse.urlparse(handler.path)
-            queries = urllib.parse.parse_qs(parsed.query)
+        general_pathlist = Path("Plugins\\CustomChecks\\General").rglob('*.py')
 
-            data = []
+        for file in general_pathlist:
+            # Create a module spec from file
+            spec = importlib.util.spec_from_file_location(file.stem, str(file))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[file.stem] = module
+            spec.loader.exec_module(module)
 
-            for key in queries:
-                data.append(queries[key][0])
-            
-            if op == "PASS_IF_EXISTS" and len(handler.db.Execute(query,data).fetchall()) == 0:
-                RequestHandlerMethods.SendResponse(handler,failresp,400,"application/json")
+            # Retrieve function
+            Check = getattr(module, "Check", None)
+            Check(handler,method,headers,body,self.model_check_list)
 
         # Host based on type
 
@@ -217,66 +196,44 @@ class StaticResponsePath:
             RequestHandlerMethods.SendResponse(handler,self.response,self.code,self.content_type_specified)
 
 class DynamicResponsePath:
-    def __init__(self,path:str = "/",script_path:str = "",checks:dict = {}):
+    def __init__(self,path:str = "/",script_path:str = "",model_check_list:dict = {}):
         self.path = path
         self.script_path = script_path
-        self.checks = checks
+        self.model_check_list = model_check_list
 
     def HostWithoutPathAccounting(self,handler:http.server.BaseHTTPRequestHandler,method:str,headers:dict,body:str|bytes):
-        # See if checks are met
-
-        allowed_methods = self.checks.get("allowed-methods",["GET","POST","PATCH","DELETE"])
-        must_be_json = self.checks.get("must-be-json",False)
-        required_json_params = self.checks.get("require-json-params",[])
-        required_url_params = self.checks.get("require-url-params",[])
-        compare_query_operation = self.checks.get("compare-query-operation",[])
-
-        if method not in allowed_methods:
-            RequestHandlerMethods.SendPlainResponse(handler,"Method not allowed!",405)
         
-        if must_be_json == True and headers["Content-Type"] != "application/json":
-            RequestHandlerMethods.SendPlainResponse(handler,"Request must be json!",400)
+        # List trough plugin list of checks
 
-        if must_be_json == True:
-            try:
-                json_content = json.loads(body)
-            except:
-                RequestHandlerMethods.SendPlainResponse(handler,"Malformed json!",400)
-            
-        if len(required_json_params) > 0 and must_be_json is True:
-            required_set = set(required_json_params)
-            provided_set = set(json_content.keys())
+        parser_pathlist = Path("Plugins\\CustomChecks\\Parser").rglob('*.py')
 
-            if not required_set <= provided_set:
-                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your json: {str(required_json_params)}!",400)
+        for file in parser_pathlist:
+            # Create a module spec from file
+            spec = importlib.util.spec_from_file_location(file.stem, str(file))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[file.stem] = module
+            spec.loader.exec_module(module)
 
-        if len(required_url_params) > 0:
-            parsed = urllib.parse.urlparse(handler.path)
-            queries = urllib.parse.parse_qs(parsed.query)
-            provided_keys = set(queries.keys())
-            required_set = set(required_url_params)
-
-            if not ( required_set <= provided_keys ):
-                RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your url: {str(required_url_params)}!",400)
+            # Retrieve function
+            Check = getattr(module, "Check", None)
+            Check(handler,method,headers,body,self.model_check_list)
         
-        if len(compare_query_operation) > 0:
-            needed_params = compare_query_operation["params"]
-            query = compare_query_operation["query"]
-            op = compare_query_operation["operation"]
-            failresp = compare_query_operation["failresp"]
-            
-            parsed = urllib.parse.urlparse(handler.path)
-            queries = urllib.parse.parse_qs(parsed.query)
+        general_pathlist = Path("Plugins\\CustomChecks\\General").rglob('*.py')
 
-            data = []
+        for file in general_pathlist:
+            # Create a module spec from file
+            spec = importlib.util.spec_from_file_location(file.stem, str(file))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[file.stem] = module
+            spec.loader.exec_module(module)
 
-            for key in queries:
-                data.append(queries[key][0])
-            
-            if op == "PASS_IF_EXISTS" and len(handler.db.Execute(query,data).fetchall()) == 0:
-                RequestHandlerMethods.SendResponse(handler,failresp,400,"application/json")
+            # Retrieve function
+            Check = getattr(module, "Check", None)
+            Check(handler,method,headers,body,self.model_check_list)
+
 
         # Run script
+
         runner = LuaEvaluator.LuaRunner(handler_instance=handler)
         parsed = urllib.parse.urlparse(handler.path)
 

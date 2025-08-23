@@ -5,6 +5,7 @@
     },
     "globals":{
         "DB_FILEPATH":"DB\\database.db",
+        "DB_LOGPATH":"Logs\\DB_LOG.log",
         "DB_INITIALQUERY_PATHS":["DB\\init.sql"]
     },
     "points":{
