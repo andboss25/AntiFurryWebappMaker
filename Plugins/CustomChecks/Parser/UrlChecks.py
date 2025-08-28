@@ -16,4 +16,5 @@ def Check(
 
         if not ( required_set <= provided_keys ):
             WebSEngine.RequestHandlerMethods.SendPlainResponse(handler,f"Must attach all parameters in your url: {str(require_url_params)}!",400)
+            return 0
         

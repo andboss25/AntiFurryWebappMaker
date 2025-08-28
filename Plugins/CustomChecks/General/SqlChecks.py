@@ -21,8 +21,7 @@ def Check(handler:http.server.BaseHTTPRequestHandler,method:str,headers:dict,bod
 
         for key in queries:
             data.append(queries[key][0])
-        
-        print(handler.db.Execute(query,data).fetchall())
             
         if op == "PASS_IF_EXISTS" and len(handler.db.Execute(query,data).fetchall()) == 0:
             WebSEngine.RequestHandlerMethods.SendResponse(handler,failresp,400,"application/json")
+            return 0

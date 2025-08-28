@@ -167,7 +167,12 @@ class StaticResponsePath:
 
             # Retrieve function
             Check = getattr(module, "Check", None)
-            Check(handler,method,headers,body,self.model_check_list)
+
+            # Weird bug on api listings making checks be lists
+            if type(self.model_check_list) != dict:
+                self.model_check_list = {}
+            if Check(handler,method,headers,body,self.model_check_list) == 0:
+                return
         
         general_pathlist = Path("Plugins\\CustomChecks\\General").rglob('*.py')
 
@@ -180,7 +185,8 @@ class StaticResponsePath:
 
             # Retrieve function
             Check = getattr(module, "Check", None)
-            Check(handler,method,headers,body,self.model_check_list)
+            if Check(handler,method,headers,body,self.model_check_list) == 0:
+                return
 
         # Host based on type
 
@@ -216,7 +222,8 @@ class DynamicResponsePath:
 
             # Retrieve function
             Check = getattr(module, "Check", None)
-            Check(handler,method,headers,body,self.model_check_list)
+            if Check(handler,method,headers,body,self.model_check_list) == 0:
+                return
         
         general_pathlist = Path("Plugins\\CustomChecks\\General").rglob('*.py')
 
@@ -229,7 +236,8 @@ class DynamicResponsePath:
 
             # Retrieve function
             Check = getattr(module, "Check", None)
-            Check(handler,method,headers,body,self.model_check_list)
+            if Check(handler,method,headers,body,self.model_check_list) == 0:
+                return
 
 
         # Run script
@@ -271,8 +279,11 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             
             if found == False:
                 self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except ConnectionAbortedError:
+            pass
         except Exception as e:
             RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
+            raise e
 
     def do_POST(self):
         try:
@@ -289,9 +300,12 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             
             if found == False:
                 self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except ConnectionAbortedError:
+            pass
         except Exception as e:
             RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
-
+            raise e
+        
     def do_PUT(self):
         try:
             method = "PUT"
@@ -307,9 +321,12 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             
             if found == False:
                 self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except ConnectionAbortedError:
+            pass
         except Exception as e:
             RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
-
+            raise e
+        
     def do_PATCH(self):
         try:
             method = "PATCH"
@@ -325,9 +342,12 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             
             if found == False:
                 self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except ConnectionAbortedError:
+            pass
         except Exception as e:
             RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
-
+            raise e
+        
     def do_DELETE(self):
         try:
             method = "DELETE"
@@ -343,9 +363,12 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             
             if found == False:
                 self.not_found_page.HostWithoutPathAccounting(self,method,headers,body)
+        except ConnectionAbortedError:
+            pass
         except Exception as e:
             RequestHandlerMethods.SendHtmlResponse(self,f"<h1>500 - Internal Server Error</h1>{str(e)}",500)
-                
+            raise e
+        
 class Server:
     def __init__(self,port:int = 80,addr:str = '',server_class=http.server.ThreadingHTTPServer,server_handler_class=RequestHandler):
         self.port = port
