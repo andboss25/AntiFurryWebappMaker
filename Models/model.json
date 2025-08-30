@@ -81,8 +81,7 @@
                 },
                 "shit":{
                     "checks":{
-                        "allowed-methods":["GET"],
-                        "valid-token-check":true
+                        "allowed-methods":["GET"]
                     },
                     "children":{},
                     "type":"Endpoint",
