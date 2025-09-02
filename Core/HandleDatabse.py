@@ -1,7 +1,7 @@
 
 import sqlite3
 
-import WebSEngine
+from Core import WebSEngine
 
 class Database:
     def __init__(self,db_globals):

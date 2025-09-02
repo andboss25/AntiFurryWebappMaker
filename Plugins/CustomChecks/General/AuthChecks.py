@@ -1,4 +1,4 @@
-import WebSEngine
+from Core import WebSEngine
 import http.server
 
 def Check(handler: http.server.BaseHTTPRequestHandler, method: str, headers: dict, body: str | bytes, checks):

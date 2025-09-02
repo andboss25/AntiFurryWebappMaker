@@ -1,8 +1,8 @@
 # Simple badly written bridge that connects and represents the points from the model file to a WebS engine
 # Written by andreiplsno
-import ParseModelFile
-import WebSEngine
-import HandleDatabse
+from Core import ParseModelFile
+from Core import WebSEngine
+from Core import HandleDatabse
 
 class Briger():
     def __init__(self,app,handler = WebSEngine.RequestHandler):

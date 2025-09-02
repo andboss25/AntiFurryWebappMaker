@@ -1,6 +1,6 @@
 
 
-import WebSEngine
+from Core import WebSEngine
 import http.server
 import urllib
 

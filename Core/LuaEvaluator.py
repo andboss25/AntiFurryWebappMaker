@@ -3,7 +3,7 @@ from pathlib import Path
 import importlib
 import sys
 
-import WebSEngine
+from Core import WebSEngine
 
 
 # Some libraries id like the user to be able to use in Lua
@@ -15,7 +15,7 @@ class LuaRunner:
         self.env.globals()["RequestHandlerMethods"] = WebSEngine.RequestHandlerMethods
         
         # Declare Libs
-        general_pathlist = Path("Plugins/LuaModules").rglob("*.py")
+        general_pathlist = Path(f"{handler_instance.lua_module_path}").rglob("*.py")
 
         for file in general_pathlist:
             spec = importlib.util.spec_from_file_location(file.stem, str(file))

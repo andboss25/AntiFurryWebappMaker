@@ -1,9 +1,9 @@
 # Simple Web-Server abstraction layer using http.server
 # Written by andreiplsno
 
-import LuaEvaluator
-import HandleDatabse
-
+from Core import LuaEvaluator
+from Core import HandleDatabse
+import os
 import http.server
 import json
 import urllib
@@ -156,7 +156,8 @@ class StaticResponsePath:
         
         # List trough plugin list of checks
 
-        parser_pathlist = Path("Plugins\\CustomChecks\\Parser").rglob('*.py')
+        
+        parser_pathlist = Path(os.path.join(RequestHandler.checks_path,"Parser")).rglob('*.py')
 
         for file in parser_pathlist:
             # Create a module spec from file
@@ -174,7 +175,7 @@ class StaticResponsePath:
             if Check(handler,method,headers,body,self.model_check_list) == 0:
                 return
         
-        general_pathlist = Path("Plugins\\CustomChecks\\General").rglob('*.py')
+        general_pathlist = Path(os.path.join(RequestHandler.checks_path,"General")).rglob('*.py')
 
         for file in general_pathlist:
             # Create a module spec from file
@@ -211,7 +212,7 @@ class DynamicResponsePath:
         
         # List trough plugin list of checks
 
-        parser_pathlist = Path("Plugins\\CustomChecks\\Parser").rglob('*.py')
+        parser_pathlist = Path(os.path.join(RequestHandler.checks_path,"Parser")).rglob('*.py')
 
         for file in parser_pathlist:
             # Create a module spec from file
@@ -225,7 +226,7 @@ class DynamicResponsePath:
             if Check(handler,method,headers,body,self.model_check_list) == 0:
                 return
         
-        general_pathlist = Path("Plugins\\CustomChecks\\General").rglob('*.py')
+        general_pathlist = Path(os.path.join(RequestHandler.checks_path,"General")).rglob('*.py')
 
         for file in general_pathlist:
             # Create a module spec from file
@@ -263,6 +264,12 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
     paths : dict[StaticResponsePath|DynamicResponsePath] = []
     db:HandleDatabse.Database = None
     not_found_page:StaticResponsePath = None
+    lua_module_path = ''
+    checks_path = ''
+
+    def SetPaths(provided_lua_module_path,provided_checks_path):
+        RequestHandler.lua_module_path = provided_lua_module_path
+        RequestHandler.checks_path = provided_checks_path
 
     def do_GET(self):
         try:

@@ -3,7 +3,7 @@ import datetime
 import json
 import random
 import base64
-import WebSEngine
+from Core import WebSEngine
 
 class exports:
     class Token():
